@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<style type="text/css">
+
+/* on mouse hover, lighten color */
+path:hover {
+	fill-opacity: .7;
+}
+
+/* style for custom tooltip */
+div.tooltip {   
+ 	position: absolute;           
+	text-align: center;           
+	width: 60px;                  
+	height: 28px;                 
+	padding: 2px;             
+	font: 12px sans-serif;        
+	background: white;   
+	border: 0px;      
+	border-radius: 8px;           
+	pointer-events: none;         
+}
+        
+/* legend font style */
+body {
+	font: 11px sans-serif;
+}
+        
+/* legend position style */
+.legend {
+	position:absolute;
+	left:800px;
+	top:350px;
+}
+
+</style>
+</head>
+<body>
+<script type="text/javascript">
+		
+// width and height of map
+var width = 960;
+var height = 600;
+
+var scale  = 60000;
+var offset = [width/2, height/2];
+
+// make new projection
+var projection = d3.geo.mercator().center([-74.0059, 40.7128])
+    .scale(scale).translate(offset);       
+        
+// make path generator
+var path = d3.geo.path().projection(projection);  
+
+var color = d3.scale.threshold().domain([40, 80, 120, 160]).range((['#ffffcc','#a1dab4','#41b6c4','#2c7fb8','#253494']));
+
+var legendText = ["Higher Price", "Same Price", "Lower Price", "Unavailable"];
+
+// make SVG element and append map
+var svg = d3.select("body")
+			.append("svg")
+			.attr("width", width)
+			.attr("height", height);
+        
+// append div for tooltip to SVG
+var div = d3.select("body")
+		    .append("div")   
+    		.attr("class", "tooltip")               
+    		.style("opacity", 0);
+
+// load NYC data
+d3.csv("data/nyc.csv", function(data) {
+
+// load GeoJSON data and merge with NYC data
+d3.json("data/nycnta.json", function(json) {
+
+// loop through each NYC data value in .csv file
+for (var i = 0; i < data.length; i++) {
+
+	// get neighborhood name
+	var dataState = data[i].NTAName;
+
+	// get data value (price, wait time, etc)
+	var dataValue = data[i].Price;
+
+	// find corresponding state inside the GeoJSON
+	for (var j = 0; j < json.features.length; j++)  {
+		var jsonState = json.features[j].properties.NTAName;
+
+		if (dataState == jsonState) {
+
+		// copy data value into JSON
+		json.features[j].properties.Price = dataValue; 
+		break;
+		}
+	}
+}
+
+		
+// bind data to SVG and make one path per GeoJSON feature
+svg.selectAll("path")
+	.data(json.features)
+	.enter()
+	.append("path")
+	.attr("d", path)
+	.style("stroke", "#fff")
+	.style("stroke-width", "1")
+	.style("fill", function(d) {
+
+	// get data value
+	var value = d.properties.Price;
+
+	if (value) {
+	//If value exists…
+	return color(value);
+	} else {
+	//If value is undefined…
+	return "rgb(213,222,217)";
+	}
+});
+        
+var legend = d3.select("body").append("svg")
+      			.attr("class", "legend")
+     			.attr("width", 140)
+    			.attr("height", 200)
+   				.selectAll("g")
+   				.data(color.domain().slice().reverse())
+   				.enter()
+   				.append("g")
+     			.attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+  	legend.append("rect")
+   		  .attr("width", 18)
+   		  .attr("height", 18)
+   		  .style("fill", color);
+
+  	legend.append("text")
+  		  .data(legendText)
+      	  .attr("x", 24)
+      	  .attr("y", 9)
+      	  .attr("dy", ".35em")
+      	  .text(function(d) { return d; });
+	});
+
+});
+</script>
+</body>
+</html>
